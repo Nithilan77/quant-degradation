@@ -1,0 +1,43 @@
+# Declarative model/quantization matrix.
+#
+# Milestone 1 only: Qwen2.5-7B-Instruct in three configs (fp16, bnb-nf4,
+# official AWQ). Add 14B/32B and GPTQ/3-bit entries here later -- src/ is
+# meant to stay config-driven, so growing this file should be enough.
+#
+# `generation` is shared by every config below and must not be
+# overridden per-model. Any config that needs to diverge from it (e.g. a
+# quantization library forcing a dtype) must do so visibly in its own
+# entry, never silently.
+
+generation:
+  do_sample: false
+  temperature: 1.0
+  top_p: 1.0
+  max_new_tokens: 512
+
+models:
+  qwen2.5-7b-instruct-fp16:
+    base_model: Qwen/Qwen2.5-7B-Instruct
+    scheme: fp16
+    dtype: float16
+    quantization: null
+
+  qwen2.5-7b-instruct-bnb-nf4:
+    base_model: Qwen/Qwen2.5-7B-Instruct
+    scheme: bnb-nf4
+    dtype: float16
+    quantization:
+      method: bitsandbytes
+      load_in_4bit: true
+      bnb_4bit_quant_type: nf4
+      bnb_4bit_compute_dtype: float16
+      bnb_4bit_use_double_quant: true
+
+  qwen2.5-7b-instruct-awq:
+    # Official Qwen pre-quantized checkpoint -- preferred over on-the-fly
+    # quantization whenever one exists, per CLAUDE.md.
+    base_model: Qwen/Qwen2.5-7B-Instruct-AWQ
+    scheme: awq
+    dtype: float16
+    quantization:
+      method: awq

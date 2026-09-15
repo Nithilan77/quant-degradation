@@ -1,0 +1,18 @@
+# Declarative task matrix. Milestone 1 only wires up gsm8k (reasoning
+# axis). The other capability axes from CLAUDE.md (triviaqa, needle-style,
+# ifeval, humaneval/mbpp) get their own entries here later -- adding a
+# task should not require touching src/run_eval.py.
+#
+# `seed` is global and must be identical across every model/task
+# combination -- this is what src/check_determinism.py verifies.
+
+seed: 1234
+
+tasks:
+  gsm8k:
+    lm_eval_task: gsm8k
+    num_fewshot: 5
+    batch_size: 1
+    # limit: null runs the full task. Override with --limit on the CLI
+    # for quick smoke tests.
+    limit: null
