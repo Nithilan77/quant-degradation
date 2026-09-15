@@ -1,0 +1,13 @@
+# GPTQ support -- NOT needed for milestone 1 (fp16/bf16 vs bnb-nf4 vs AWQ).
+# Install this only once the GPTQ scheme is actually added to
+# configs/models.yaml (see CLAUDE.md "Current status").
+#
+# auto-gptq builds a native extension against the installed torch/CUDA
+# version and is fragile -- always install it AFTER requirements.txt so
+# it builds against the already-pinned, known-compatible torch, not
+# whatever the resolver would otherwise pick.
+#
+#   pip install -r requirements.txt
+#   pip install -r requirements-gptq.txt
+
+auto-gptq>=0.7.1,<0.8.0

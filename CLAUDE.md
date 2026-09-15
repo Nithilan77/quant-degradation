@@ -17,7 +17,10 @@ result must be reported per capability axis, never averaged across axes.
 - Qwen2.5-14B-Instruct
 - Qwen2.5-32B-Instruct
 
-fp16 is the baseline for every model size. Quantization schemes to cover:
+fp16 is the baseline for every model size — "fp16" here is this project's
+label for "the unquantized baseline," not a literal dtype claim: Qwen2.5
+is trained/released in bf16, so the baseline config actually loads in
+`bfloat16` (see `configs/models.yaml`). Quantization schemes to cover:
 
 - bitsandbytes NF4 (on-the-fly, load-time quantization)
 - GPTQ (8/4/3-bit)
@@ -71,7 +74,16 @@ assuming any of them exist.
    Greedy decoding, fixed seeds for `random`/`numpy`/`torch`, fixed batch
    size (batch size affects padding, which affects logits/generation, so
    it counts as a generation-config parameter — never let it drift between
-   configs for the same task).
+   configs for the same task). `src/load_model.py` enforces this strictly:
+   `torch.use_deterministic_algorithms(True, warn_only=False)` by default
+   (a kernel with no deterministic implementation raises immediately
+   rather than silently falling back — that's a real finding about that
+   quantization backend, not something to route around) plus
+   `CUBLAS_WORKSPACE_CONFIG=:4096:8` set from within the script so cuBLAS
+   ops can actually satisfy that. Tokenizer `pad_token`/`padding_side` are
+   also forced explicitly rather than trusted from each checkpoint repo's
+   own `tokenizer_config.json`, since the base and AWQ repos are separate
+   uploads with no guarantee they agree.
 4. **Never silently vary generation params between configs.** If a
    parameter must differ for one config to even run (e.g. a quantization
    library forcing a specific dtype), that has to be a visible, documented
@@ -101,7 +113,9 @@ three accuracy numbers side by side.
 
 **Not yet built** (intentionally, to keep the first loop small):
 - 14B/32B model configs
-- GPTQ configs
+- GPTQ configs — deps deliberately kept out of `requirements.txt` (see
+  `requirements-gptq.txt`); auto-gptq builds a native extension and is
+  fragile, so it's only installed once the GPTQ scheme is actually added
 - 3-bit configs
 - Any capability axis other than gsm8k (triviaqa, needle, ifeval,
   humaneval/mbpp)
@@ -131,4 +145,7 @@ results/processed/ derived tables (degradation deltas, per-axis summaries)
                    built from results/raw/. Never hand-edited.
 figures/     exported plots for the paper.
 notebooks/   exploratory analysis against results/processed/, not raw.
+requirements.txt       pinned core + AWQ/bnb deps for the GPU box.
+requirements-gptq.txt  auto-gptq, kept separate -- install only once the
+                        GPTQ scheme is added (see "Current status").
 ```

@@ -11,6 +11,17 @@ HF's own env vars (HF_HOME, HF_TOKEN), never from anything local to a
 particular machine.
 """
 
+import os
+
+# Must be set before any CUDA context is created (i.e. before the first
+# CUDA op runs), or torch.use_deterministic_algorithms(True) below will
+# raise for cuBLAS ops like matmul instead of running deterministically.
+# Setting it here, at import time, guarantees that regardless of which
+# entry point (run_eval.py, check_determinism.py, run_milestone.py)
+# imports this module first. setdefault so an operator's own env setting
+# is respected if already present.
+os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+
 import random
 
 import numpy as np
@@ -24,16 +35,25 @@ _DTYPES = {
 }
 
 
-def set_deterministic_seed(seed: int) -> None:
+def set_deterministic_seed(seed: int, strict: bool = True) -> None:
     """Seed every RNG the pipeline touches. Call this before load_model
     and again immediately before generation -- lm-eval-harness also
     consumes randomness (few-shot sampling), so both call sites matter.
+
+    strict=True (default) makes torch raise on any op without a
+    deterministic CUDA implementation, rather than silently falling back
+    to a nondeterministic one with only a warning. That's the correct
+    default for this project: a quantization backend whose kernels can't
+    run deterministically is a real finding to record, not something to
+    paper over by quietly downgrading to warn_only.
     """
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-    torch.use_deterministic_algorithms(True, warn_only=True)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True, warn_only=not strict)
 
 
 def _dtype(name: str) -> torch.dtype:
@@ -76,6 +96,18 @@ def load_model(model_cfg: dict, seed: int):
     quantization_config = _build_quantization_config(model_cfg.get("quantization"))
 
     tokenizer = AutoTokenizer.from_pretrained(base_model)
+    # Force pad token/side explicitly rather than trusting each
+    # checkpoint repo's shipped tokenizer_config.json to agree -- the
+    # base and AWQ repos are separate uploads and there is no guarantee
+    # they set these identically, and a divergence here would silently
+    # break the "identical tokenization across configs" constraint.
+    # Left padding is required for correct batched causal-LM generation
+    # (all sequences must end at the same position); pinning it now also
+    # means nothing has to change when batch_size later grows past 1.
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.padding_side = "left"
+
     model = AutoModelForCausalLM.from_pretrained(
         base_model,
         torch_dtype=dtype,
@@ -83,4 +115,5 @@ def load_model(model_cfg: dict, seed: int):
         quantization_config=quantization_config,
     )
     model.eval()
+    model.generation_config.pad_token_id = tokenizer.pad_token_id
     return model, tokenizer

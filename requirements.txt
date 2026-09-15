@@ -1,19 +1,27 @@
 # GPU box setup. See README.md for the full install sequence -- torch
 # needs to be installed separately with a CUDA-matched wheel BEFORE this
 # file, or pip will happily give you a CPU-only or mismatched build.
+#
+# Pinned with upper bounds to a set known to work together for Qwen2.5
+# eval with AWQ + bitsandbytes. Do not loosen these casually -- an
+# unpinned resolver has previously pulled bleeding-edge torch that broke
+# native-extension builds (auto-gptq) and could just as easily break
+# autoawq/bitsandbytes silently instead of loudly.
+#
+# GPTQ is NOT installed by this file -- see requirements-gptq.txt.
 
 # Core
-torch>=2.3.0
-transformers>=4.44.0
-accelerate>=0.33.0
-datasets>=2.20.0
-pandas>=2.2.0
-pyyaml>=6.0
+torch>=2.4.0,<2.6.0
+transformers>=4.44.0,<4.47.0
+accelerate>=0.33.0,<0.35.0
+datasets>=2.20.0,<2.22.0
+pandas>=2.2.0,<2.3.0
+pyyaml>=6.0,<7.0
 
 # Eval harness
-lm-eval>=0.4.3
+lm-eval>=0.4.3,<0.4.6
 
-# Quantization backends
-bitsandbytes>=0.43.1
-autoawq>=0.2.6
-auto-gptq>=0.7.1
+# Quantization backends (bitsandbytes NF4, AWQ). GPTQ is deferred --
+# see requirements-gptq.txt and CLAUDE.md "Current status".
+bitsandbytes>=0.43.1,<0.45.0
+autoawq>=0.2.6,<0.2.9

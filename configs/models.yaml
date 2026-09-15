@@ -17,12 +17,20 @@ generation:
 
 models:
   qwen2.5-7b-instruct-fp16:
+    # NOTE: dtype is bfloat16, not float16, despite the "fp16" key/scheme
+    # label -- Qwen2.5 was trained and is released in bf16, so bf16 is
+    # the correct unquantized baseline. "fp16" is kept as this project's
+    # established label for "the unquantized baseline" (see CLAUDE.md);
+    # it is not a claim about the actual tensor dtype.
     base_model: Qwen/Qwen2.5-7B-Instruct
     scheme: fp16
-    dtype: float16
+    dtype: bfloat16
     quantization: null
 
   qwen2.5-7b-instruct-bnb-nf4:
+    # Compute dtype stays float16, not bf16, so that comparisons against
+    # the AWQ config (whose kernels are fp16-only, see below) aren't also
+    # confounded by a dtype difference between the two quantized configs.
     base_model: Qwen/Qwen2.5-7B-Instruct
     scheme: bnb-nf4
     dtype: float16
@@ -36,6 +44,9 @@ models:
   qwen2.5-7b-instruct-awq:
     # Official Qwen pre-quantized checkpoint -- preferred over on-the-fly
     # quantization whenever one exists, per CLAUDE.md.
+    # dtype is float16, not bf16: AutoAWQ's fused/exllama-style kernels
+    # have historically been fp16-only, so bf16 here would risk a hard
+    # failure or a silent kernel fallback rather than a clean comparison.
     base_model: Qwen/Qwen2.5-7B-Instruct-AWQ
     scheme: awq
     dtype: float16
