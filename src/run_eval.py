@@ -47,7 +47,7 @@ def run_eval(
     generation_cfg = models_cfg["generation"]
     seed = tasks_cfg["seed"]
 
-    model, tokenizer = load_model(model_cfg, seed)
+    model, tokenizer = load_model(model_cfg, seed, generation_cfg)
 
     lm = HFLM(
         pretrained=model,
@@ -63,11 +63,20 @@ def run_eval(
 
     effective_limit = limit if limit is not None else task_cfg.get("limit")
 
+    # Belt-and-suspenders with apply_generation_config in load_model.py:
+    # gsm8k's own lm-eval task YAML sets its own generation_kwargs
+    # (e.g. do_sample), and CLI/API-level gen_kwargs takes precedence
+    # over a task's built-in ones. Passed explicitly here so the shared
+    # `generation` block from configs/models.yaml is what actually reaches
+    # generate(), not whatever a given lm-eval task happens to default to.
+    gen_kwargs = ",".join(f"{k}={v}" for k, v in generation_cfg.items())
+
     results = lm_eval.simple_evaluate(
         model=lm,
         tasks=[task_cfg["lm_eval_task"]],
         num_fewshot=task_cfg["num_fewshot"],
         limit=effective_limit,
+        gen_kwargs=gen_kwargs,
         random_seed=seed,
         numpy_random_seed=seed,
         torch_random_seed=seed,

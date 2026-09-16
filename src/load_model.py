@@ -87,8 +87,30 @@ def _build_quantization_config(quant: dict | None) -> BitsAndBytesConfig | None:
     raise ValueError(f"Unknown quantization method '{method}'")
 
 
-def load_model(model_cfg: dict, seed: int):
-    """model_cfg is one entry from configs/models.yaml `models:`."""
+def apply_generation_config(model, generation_cfg: dict) -> None:
+    """Overwrite whatever generation_config.json shipped with the
+    checkpoint with the shared block from configs/models.yaml.
+
+    from_pretrained loads each checkpoint's own generation_config.json,
+    and Qwen2.5-Instruct checkpoints ship sampling defaults (do_sample:
+    true, temperature: 0.7, top_p: 0.8, top_k: 20) baked in. Left alone,
+    those silently win over the "greedy, deterministic" config this
+    project requires, and the base/AWQ/bnb repos -- separate uploads --
+    have no guarantee of shipping identical defaults either. This makes
+    the YAML block authoritative instead of decorative.
+    """
+    model.generation_config.do_sample = generation_cfg["do_sample"]
+    model.generation_config.temperature = generation_cfg["temperature"]
+    model.generation_config.top_p = generation_cfg["top_p"]
+    model.generation_config.top_k = generation_cfg["top_k"]
+    model.generation_config.max_new_tokens = generation_cfg["max_new_tokens"]
+
+
+def load_model(model_cfg: dict, seed: int, generation_cfg: dict):
+    """model_cfg is one entry from configs/models.yaml `models:`.
+    generation_cfg is the shared `generation:` block, applied here so it
+    can't be silently shadowed by a checkpoint's own generation_config.json.
+    """
     set_deterministic_seed(seed)
 
     base_model = model_cfg["base_model"]
@@ -116,4 +138,5 @@ def load_model(model_cfg: dict, seed: int):
     )
     model.eval()
     model.generation_config.pad_token_id = tokenizer.pad_token_id
+    apply_generation_config(model, generation_cfg)
     return model, tokenizer

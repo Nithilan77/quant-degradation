@@ -9,10 +9,21 @@
 # quantization library forcing a dtype) must do so visibly in its own
 # entry, never silently.
 
+# temperature/top_p/top_k are no-ops under do_sample: false, but must
+# still be pinned to HF's own greedy-neutral defaults (1.0/1.0/50) and
+# applied explicitly (see load_model.apply_generation_config). Every
+# Qwen2.5-Instruct checkpoint ships its own generation_config.json with
+# sampling defaults (do_sample: true, temperature: 0.7, top_p: 0.8,
+# top_k: 20) baked in, and transformers loads that from the checkpoint
+# at from_pretrained time -- if this block isn't applied on top of it,
+# every config silently runs sampling instead of greedy decoding, and
+# fp16/AWQ/bnb configs can each diverge since AWQ is a separate upload
+# with no guarantee its generation_config.json agrees with the base repo.
 generation:
   do_sample: false
   temperature: 1.0
   top_p: 1.0
+  top_k: 50
   max_new_tokens: 512
 
 models:
