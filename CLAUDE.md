@@ -54,13 +54,22 @@ Measured **separately**, never aggregated into one score:
 |---|---|
 | Reasoning | gsm8k |
 | Factual recall | triviaqa |
-| Long-context retrieval | needle-style |
-| Instruction-following | ifeval |
+| Instruction-following | leaderboard_ifeval |
 | Code | humaneval / mbpp |
+| Long-context retrieval | needle-style |
 
-Current milestone only wires up **reasoning (gsm8k)**. The other axes are
-planned but not yet implemented — see "Current status" below before
-assuming any of them exist.
+Current scope is the **four axes above the line**: reasoning, factual
+recall, instruction-following, code — all four are declared in
+`configs/tasks.yaml`. **Long-context retrieval is deliberately deferred to
+a later phase** — no needle-style task exists yet, don't assume one does.
+
+Of the four in scope, code (humaneval/mbpp) is configured but **not yet
+runnable**: it needs a `lm-eval` version bump (task defs don't exist in
+the currently pinned range), lm-eval's own `confirm_run_unsafe_code` gate,
+and HF `evaluate`'s separate `HF_ALLOW_CODE_EVAL` gate, none of which
+`src/run_eval.py` handles yet — see its module docstring and README.md
+"Code execution tasks" for the full breakdown. Treat any humaneval/mbpp
+result as untrustworthy until that's resolved.
 
 ## Hard constraints (paper validity depends on these)
 
@@ -125,8 +134,10 @@ not yet run against a real `results/raw/`.
   `requirements-gptq.txt`); auto-gptq builds a native extension and is
   fragile, so it's only installed once the GPTQ scheme is actually added
 - 3-bit configs
-- Any capability axis other than gsm8k (triviaqa, needle, ifeval,
-  humaneval/mbpp)
+- Code-execution handling in `src/run_eval.py` for humaneval/mbpp (task
+  configs exist in `configs/tasks.yaml`; execution doesn't work yet — see
+  above)
+- Long-context retrieval (needle-style) — later phase, not this one
 
 When expanding: extend `configs/models.yaml` / `configs/tasks.yaml` rather
 than adding new code paths — `src/run_eval.py` and `src/load_model.py`

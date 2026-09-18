@@ -9,13 +9,20 @@ No `torch` import here (or anywhere else in this module) -- this runs on
 the laptop side against results synced from the GPU box, not on the GPU
 box itself.
 
-Metric selection is explicit, not inferred per-run: gsm8k reports several
-metric variants (e.g. strict-match vs flexible-extract), and CLAUDE.md's
-determinism/no-silent-divergence rule applies here too -- comparisons must
-never quietly mix metric variants across configs. This script picks one
-metric filter for the whole run (--metric-filter, default strict-match)
-and raises if any result is missing that exact key, rather than falling
-back to whatever key happens to be present.
+Metric selection is explicit, not inferred per-run: several tasks report
+multiple metric variants (e.g. gsm8k's strict-match vs flexible-extract),
+and CLAUDE.md's determinism/no-silent-divergence rule applies here too --
+comparisons must never quietly mix metric variants across configs. Each
+task in configs/tasks.yaml declares its own `metric` + `metric_filter`
+(lm-eval's results dict is always keyed "<metric>,<filter>", with the
+literal filter name "none" when a task defines no filter_list -- the
+filter is never omitted). That per-task default is what's used unless
+--metric-filter is passed, which forces every task in this run to the
+same filter string instead (mainly useful for a gsm8k-only exploratory
+run, since forcing one filter name across tasks with genuinely different
+filter vocabularies, e.g. triviaqa's "remove_whitespace", will just miss
+every non-gsm8k task's real key). Either way, a missing key raises rather
+than falling back to whatever key happens to be present.
 """
 
 import argparse
@@ -65,15 +72,20 @@ def extract_size(base_model: str) -> str:
     return match.group(1).upper()
 
 
-def metric_key_for(task_cfg: dict, metric_filter: str | None) -> str:
+def metric_key_for(task_cfg: dict, metric_filter_override: str | None) -> str:
+    """lm-eval always keys results "<metric>,<filter>" -- "none" is a real,
+    literal filter name for a task with no filter_list, not an omitted
+    suffix. --metric-filter, if passed, overrides every task's own
+    configured filter; otherwise each task's `metric_filter` from
+    configs/tasks.yaml is used.
+    """
     base_metric = task_cfg["metric"]
-    if metric_filter:
-        return f"{base_metric},{metric_filter}"
-    return base_metric
+    filter_name = metric_filter_override if metric_filter_override else task_cfg["metric_filter"]
+    return f"{base_metric},{filter_name}"
 
 
 def build_dataframe(
-    payloads: list[dict], tasks_cfg: dict, metric_filter: str = "strict-match"
+    payloads: list[dict], tasks_cfg: dict, metric_filter_override: str | None = None
 ) -> pd.DataFrame:
     rows = []
     for payload in payloads:
@@ -82,7 +94,7 @@ def build_dataframe(
         task_cfg = tasks_cfg["tasks"][task_key]
         results = payload["results"]
 
-        key = metric_key_for(task_cfg, metric_filter)
+        key = metric_key_for(task_cfg, metric_filter_override)
         if key not in results:
             available = sorted(k for k in results if "stderr" not in k and k != "alias")
             raise KeyError(
@@ -123,10 +135,11 @@ def main() -> None:
     parser.add_argument("--output", default="results/processed/aggregated.csv")
     parser.add_argument(
         "--metric-filter",
-        default="strict-match",
-        help="lm-eval metric filter variant to use for every run, e.g. "
-        "strict-match or flexible-extract (default: strict-match). Applied "
-        "uniformly across all configs -- never mixed per-run.",
+        default=None,
+        help="Force this lm-eval metric filter variant for every task in this run "
+        "(e.g. strict-match). Default: use each task's own metric_filter from "
+        "configs/tasks.yaml -- only pass this to override all of them at once "
+        "for a single-task exploratory run.",
     )
     args = parser.parse_args()
 
@@ -142,7 +155,8 @@ def main() -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(out_path, index=False)
 
-    print(f"Wrote {len(df)} rows to {out_path} (metric filter: {args.metric_filter!r})")
+    filter_desc = args.metric_filter if args.metric_filter else "per-task default"
+    print(f"Wrote {len(df)} rows to {out_path} (metric filter: {filter_desc!r})")
     print(df.to_string(index=False))
 
 

@@ -41,6 +41,18 @@ actually added to `configs/models.yaml`, install it separately, after
 pip install -r requirements-gptq.txt
 ```
 
+**`leaderboard_ifeval` needs the `ifeval` extra**, not installed by
+`requirements.txt` either (it pulls `langdetect`, `immutabledict`,
+`nltk>=3.9.1`; without it the task fails to load with
+`ModuleNotFoundError: No module named 'langdetect'`):
+
+```bash
+pip install "lm-eval[ifeval]"
+```
+
+**`humaneval`/`mbpp` (the code axis) execute model-generated Python and
+are not runnable yet** -- see "Code execution tasks" below before trying.
+
 ## Running the milestone
 
 ```bash
@@ -66,6 +78,41 @@ a nondeterministic-operation error for a specific quantization backend,
 that's a real result to record (that backend can't guarantee reproducible
 output) -- don't work around it by relaxing determinism back to warn-only.
 
+## Code execution tasks (humaneval, mbpp) -- not runnable yet
+
+`configs/tasks.yaml` declares `humaneval` and `mbpp` (the code axis,
+`requires_code_execution: true`), but `src/run_eval.py` doesn't handle
+them correctly yet -- both fail closed for real reasons, not oversights:
+
+1. **`lm-eval` version.** `requirements.txt` pins `lm-eval>=0.4.3,<0.4.6`.
+   The `humaneval`/`mbpp` task definitions don't exist in that range at
+   all (added upstream in v0.4.8) -- `TaskManager` will report them as
+   unknown tasks. Running the code axis needs the pin bumped to
+   `>=0.4.8`, which is a real, untested-here compatibility question
+   against the already-pinned torch/transformers/bitsandbytes/autoawq
+   set in `requirements.lock.txt` -- don't bump it without re-verifying
+   the full install on the GPU box.
+2. **lm-eval's own safety gate.** From v0.4.8 on, `simple_evaluate()`
+   takes `confirm_run_unsafe_code: bool = False` and raises for any task
+   marked `unsafe_code: true` (both humaneval and mbpp are) unless it's
+   explicitly `True`. `src/run_eval.py` doesn't pass this at all yet.
+3. **A second, separate safety gate.** The actual code execution happens
+   in HuggingFace `evaluate`'s `code_eval` metric, which independently
+   refuses to run (`ValueError`, printing a large warning) until the
+   `HF_ALLOW_CODE_EVAL=1` environment variable is set -- lm-eval's own
+   `confirm_run_unsafe_code=True` does not set this for you. Nothing in
+   this repo sets it yet.
+4. **Windows.** `code_eval` raises
+   `NotImplementedError("This metric is currently not supported on
+   Windows.")` unconditionally -- confirmed by running it locally. It
+   only works on the Linux GPU box; there's no way to smoke-test
+   humaneval/mbpp's accuracy computation from the laptop, fixtures or not
+   (fixtures still work for the analysis layer, since that never
+   re-executes the eval).
+
+None of this is implemented in `src/run_eval.py` yet -- see the module
+docstring there for the same list, flagged inline.
+
 ## Analysis layer
 
 Once raw results exist (real, in `results/raw/`, or synthetic, in
@@ -83,9 +130,11 @@ python src/analyze.py
 Both scripts point at `results/raw/` / `results/processed/` / `figures/`
 by default; pass `--raw-dir fixtures/synthetic_raw` (and matching
 `--output`/`--input`/`--figure` paths) to run against synthetic data
-instead without touching real results. gsm8k reports both strict-match and
-flexible-extract; `src/aggregate.py --metric-filter` picks which one feeds
-the whole pipeline (default: `strict-match`) -- never mixed across a run.
+instead without touching real results. Each task in `configs/tasks.yaml`
+declares its own `metric` + `metric_filter` (e.g. gsm8k's strict-match vs.
+flexible-extract, triviaqa's remove_whitespace) -- `src/aggregate.py`
+uses those by default; `--metric-filter` forces one filter across every
+task in the run instead, mainly useful for a single-task exploratory run.
 
 ## Repo layout
 

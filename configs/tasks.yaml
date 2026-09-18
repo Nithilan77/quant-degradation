@@ -1,10 +1,22 @@
-# Declarative task matrix. Milestone 1 only wires up gsm8k (reasoning
-# axis). The other capability axes from CLAUDE.md (triviaqa, needle-style,
-# ifeval, humaneval/mbpp) get their own entries here later -- adding a
-# task should not require touching src/run_eval.py.
+# Declarative task matrix. Four capability axes from CLAUDE.md are wired
+# up here: reasoning (gsm8k), factual recall (triviaqa), instruction-
+# following (leaderboard_ifeval), code (humaneval, mbpp). Long-context
+# retrieval is deliberately NOT included yet -- later phase, see CLAUDE.md.
+# Adding/adjusting a task should not require touching src/run_eval.py.
 #
 # `seed` is global and must be identical across every model/task
 # combination -- this is what src/check_determinism.py verifies.
+#
+# Every task below declares `metric` + `metric_filter` explicitly rather
+# than letting src/aggregate.py guess: lm-eval-harness's results dict is
+# always keyed "<metric>,<filter>" -- literally ",none" when a task's own
+# YAML defines no filter_list, never a bare metric name -- and the filter
+# name differs per task (gsm8k: strict-match/flexible-extract, triviaqa:
+# remove_whitespace, humaneval: create_test, mbpp/ifeval: none). A single
+# global default (e.g. always "strict-match") silently produces the wrong
+# key for every task except gsm8k, so src/aggregate.py reads each task's
+# own metric_filter by default and only overrides all of them at once if
+# --metric-filter is passed explicitly on the CLI.
 
 seed: 1234
 
@@ -20,8 +32,79 @@ tasks:
     # src/aggregate.py reads this rather than hardcoding a task->axis map,
     # so adding a task here is enough, no src/ changes needed.
     capability_axis: reasoning
-    # Base lm-eval metric name. gsm8k reports this under two filter
-    # variants, "exact_match,strict-match" and "exact_match,flexible-extract"
-    # -- src/aggregate.py appends the filter (--metric-filter, default
-    # strict-match) to this to build the actual results key.
+    # gsm8k's own filter_list defines "strict-match" and "flexible-extract"
+    # -- default to strict-match consistently per CLAUDE.md's "identical
+    # ... between fp16 and every quantized config" spirit: pick one and
+    # never let it drift silently between runs.
     metric: exact_match
+    metric_filter: strict-match
+
+  triviaqa:
+    lm_eval_task: triviaqa
+    num_fewshot: 5
+    batch_size: 1
+    limit: null
+    capability_axis: factual_recall
+    # triviaqa's own filter_list has one filter, "remove_whitespace"
+    # (lm_eval/tasks/triviaqa/default.yaml) -- there is no strict/flexible
+    # choice to make here, unlike gsm8k.
+    metric: exact_match
+    metric_filter: remove_whitespace
+
+  leaderboard_ifeval:
+    lm_eval_task: leaderboard_ifeval
+    num_fewshot: 0
+    batch_size: 1
+    limit: null
+    capability_axis: instruction_following
+    # Requires the `ifeval` extra: pip install "lm-eval[ifeval]" (pulls
+    # langdetect, immutabledict, nltk>=3.9.1) -- NOT in requirements.txt
+    # yet, install it explicitly on the GPU box before running this task.
+    # See README.md "GPU box setup".
+    #
+    # ifeval reports 4 metrics (prompt/inst level x strict/loose); this
+    # project's convention elsewhere is "prefer strict" (see gsm8k above),
+    # so prompt_level_strict_acc is the one src/aggregate.py reads by
+    # default. The other three are still in the raw JSON if needed later.
+    # ifeval's own YAML defines no filter_list, so the results key is
+    # "prompt_level_strict_acc,none" (lm-eval always appends a filter
+    # suffix -- "none" is a literal filter name, not "no filter").
+    metric: prompt_level_strict_acc
+    metric_filter: none
+
+  humaneval:
+    lm_eval_task: humaneval
+    num_fewshot: 0
+    batch_size: 1
+    limit: null
+    capability_axis: code
+    # Pass@1. humaneval's metric function (utils.pass_at_k) returns a
+    # dict ({"pass@1": ...}) rather than a scalar -- lm-eval-harness uses
+    # the dict's OWN key as the results-dict key in that case (see
+    # lm_eval/api/task.py process_results, the `isinstance(result_score,
+    # dict)` branch), so the metric name here is "pass@1", not the
+    # function name "pass_at_k". Filter is "create_test" (humaneval's own
+    # filter_list). Verified by reading lm-eval-harness v0.4.8 source
+    # (see "Not yet built" below for why v0.4.8, not the currently pinned
+    # range) -- confirm against the actual results JSON the first time
+    # this runs for real, since this is inferred from source, not a run.
+    metric: pass@1
+    metric_filter: create_test
+    # See CLAUDE.md / README "Code execution tasks" -- this task executes
+    # untrusted model-generated code and needs deliberate handling in
+    # src/run_eval.py that isn't implemented yet.
+    requires_code_execution: true
+
+  mbpp:
+    lm_eval_task: mbpp
+    num_fewshot: 3
+    batch_size: 1
+    limit: null
+    capability_axis: code
+    # Pass@1. Unlike humaneval, mbpp's metric function (utils.pass_at_1)
+    # returns a plain float, so the results key uses the function name
+    # directly: "pass_at_1". mbpp's own YAML defines no filter_list, so
+    # the filter is the literal "none", same as leaderboard_ifeval above.
+    metric: pass_at_1
+    metric_filter: none
+    requires_code_execution: true

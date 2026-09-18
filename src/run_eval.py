@@ -12,6 +12,29 @@ configs/tasks.yaml, so nothing here should read per-model overrides for
 those fields. If a future quantization backend genuinely requires a
 different batch_size to run at all, that must become a visible, documented
 exception in configs/models.yaml -- not a default threaded through here.
+
+NOT YET HANDLED: code-execution tasks (humaneval, mbpp -- see
+configs/tasks.yaml `requires_code_execution: true`). These differ from
+plain generate-until tasks and this module does nothing special for them
+yet:
+  1. requirements.txt pins lm-eval<0.4.6; humaneval/mbpp task defs don't
+     exist before v0.4.8 upstream. Needs a deliberate, GPU-box-verified
+     version bump, not a casual pin loosen (see README "Code execution
+     tasks").
+  2. From v0.4.8, simple_evaluate() takes confirm_run_unsafe_code: bool,
+     and raises for any task marked unsafe_code: true unless it's passed
+     as True. Not passed below -- would need to be threaded through from
+     task_cfg["requires_code_execution"].
+  3. Separately, HF `evaluate`'s code_eval metric (what actually executes
+     the generated code) refuses to run until the HF_ALLOW_CODE_EVAL=1
+     env var is set -- confirm_run_unsafe_code=True does not imply this.
+     Nothing sets it here; it deliberately requires a human to have read
+     that library's own safety warning first, so auto-setting it in code
+     is a judgment call, not just a missing line.
+  4. code_eval raises NotImplementedError on Windows -- only runs on the
+     Linux GPU box, confirmed by running it locally.
+See README.md "Code execution tasks (humaneval, mbpp) -- not runnable
+yet" for the full writeup.
 """
 
 import argparse
@@ -71,6 +94,10 @@ def run_eval(
     # generate(), not whatever a given lm-eval task happens to default to.
     gen_kwargs = ",".join(f"{k}={v}" for k, v in generation_cfg.items())
 
+    # NOT YET HANDLED for task_cfg.get("requires_code_execution"): no
+    # confirm_run_unsafe_code kwarg here, no HF_ALLOW_CODE_EVAL env var set,
+    # and this lm-eval version doesn't even have humaneval/mbpp registered.
+    # See module docstring above / README "Code execution tasks".
     results = lm_eval.simple_evaluate(
         model=lm,
         tasks=[task_cfg["lm_eval_task"]],
