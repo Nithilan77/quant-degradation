@@ -1,0 +1,4 @@
+model,size,scheme,bit_width,task,capability_axis,metric,value
+Qwen/Qwen2.5-7B-Instruct-AWQ,7B,awq,4,gsm8k,reasoning,"exact_match,strict-match",0.8286
+Qwen/Qwen2.5-7B-Instruct,7B,bnb-nf4,4,gsm8k,reasoning,"exact_match,strict-match",0.7901
+Qwen/Qwen2.5-7B-Instruct,7B,fp16,,gsm8k,reasoning,"exact_match,strict-match",0.8506

@@ -16,3 +16,12 @@ tasks:
     # limit: null runs the full task. Override with --limit on the CLI
     # for quick smoke tests.
     limit: null
+    # Which capability axis (CLAUDE.md table) this task measures --
+    # src/aggregate.py reads this rather than hardcoding a task->axis map,
+    # so adding a task here is enough, no src/ changes needed.
+    capability_axis: reasoning
+    # Base lm-eval metric name. gsm8k reports this under two filter
+    # variants, "exact_match,strict-match" and "exact_match,flexible-extract"
+    # -- src/aggregate.py appends the filter (--metric-filter, default
+    # strict-match) to this to build the actual results key.
+    metric: exact_match

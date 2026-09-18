@@ -36,6 +36,9 @@ models:
     base_model: Qwen/Qwen2.5-7B-Instruct
     scheme: fp16
     dtype: bfloat16
+    # Unquantized baseline -- null, not 16, so analysis code can't
+    # mistake it for a quantization scheme with a real bit-width.
+    bit_width: null
     quantization: null
 
   qwen2.5-7b-instruct-bnb-nf4:
@@ -45,6 +48,7 @@ models:
     base_model: Qwen/Qwen2.5-7B-Instruct
     scheme: bnb-nf4
     dtype: float16
+    bit_width: 4
     quantization:
       method: bitsandbytes
       load_in_4bit: true
@@ -61,5 +65,7 @@ models:
     base_model: Qwen/Qwen2.5-7B-Instruct-AWQ
     scheme: awq
     dtype: float16
+    # Qwen's official AWQ checkpoints are Int4.
+    bit_width: 4
     quantization:
       method: awq

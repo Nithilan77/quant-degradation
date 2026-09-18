@@ -18,6 +18,10 @@ datasets>=2.20.0,<2.22.0
 pandas>=2.2.0,<2.3.0
 pyyaml>=6.0,<7.0
 
+# Analysis layer (src/aggregate.py, src/analyze.py) -- no torch dependency,
+# runs fine on the laptop against results synced from the GPU box.
+matplotlib>=3.8,<3.10
+
 # Eval harness
 lm-eval>=0.4.3,<0.4.6
 

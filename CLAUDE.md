@@ -111,6 +111,14 @@ configs — fp16, bnb-nf4, official AWQ
 (`Qwen/Qwen2.5-7B-Instruct-AWQ`) — via `src/run_milestone.py`, printing the
 three accuracy numbers side by side.
 
+Also implemented: the degradation analysis layer (`src/aggregate.py`,
+`src/analyze.py`) that reduces `results/raw/` into `results/processed/`
+tidy CSVs and a `figures/` figure, keyed off `capability_axis`/`metric`
+fields now declared per task in `configs/tasks.yaml` (and `bit_width` per
+model in `configs/models.yaml`). Built and tested against synthetic data
+in `fixtures/` (see `fixtures/README.md`) while the GPU box was down —
+not yet run against a real `results/raw/`.
+
 **Not yet built** (intentionally, to keep the first loop small):
 - 14B/32B model configs
 - GPTQ configs — deps deliberately kept out of `requirements.txt` (see
@@ -119,8 +127,6 @@ three accuracy numbers side by side.
 - 3-bit configs
 - Any capability axis other than gsm8k (triviaqa, needle, ifeval,
   humaneval/mbpp)
-- The degradation analysis layer that reduces `results/raw/` into
-  `results/processed/` and figures
 
 When expanding: extend `configs/models.yaml` / `configs/tasks.yaml` rather
 than adding new code paths — `src/run_eval.py` and `src/load_model.py`

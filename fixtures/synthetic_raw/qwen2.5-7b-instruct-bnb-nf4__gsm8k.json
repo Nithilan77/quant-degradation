@@ -1,0 +1,42 @@
+{
+  "model_key": "qwen2.5-7b-instruct-bnb-nf4",
+  "task_key": "gsm8k",
+  "model_cfg": {
+    "base_model": "Qwen/Qwen2.5-7B-Instruct",
+    "scheme": "bnb-nf4",
+    "dtype": "float16",
+    "bit_width": 4,
+    "quantization": {
+      "method": "bitsandbytes",
+      "load_in_4bit": true,
+      "bnb_4bit_quant_type": "nf4",
+      "bnb_4bit_compute_dtype": "float16",
+      "bnb_4bit_use_double_quant": true
+    }
+  },
+  "task_cfg": {
+    "lm_eval_task": "gsm8k",
+    "num_fewshot": 5,
+    "batch_size": 1,
+    "limit": null,
+    "capability_axis": "reasoning",
+    "metric": "exact_match"
+  },
+  "generation_cfg": {
+    "do_sample": false,
+    "temperature": 1.0,
+    "top_p": 1.0,
+    "top_k": 50,
+    "max_new_tokens": 512
+  },
+  "seed": 1234,
+  "limit": null,
+  "timestamp": 1789702640.766045,
+  "results": {
+    "alias": "gsm8k",
+    "exact_match,strict-match": 0.7901,
+    "exact_match_stderr,strict-match": 0.0112,
+    "exact_match,flexible-extract": 0.8052,
+    "exact_match_stderr,flexible-extract": 0.0109
+  }
+}

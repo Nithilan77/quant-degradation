@@ -1,0 +1,36 @@
+{
+  "model_key": "qwen2.5-7b-instruct-fp16",
+  "task_key": "gsm8k",
+  "model_cfg": {
+    "base_model": "Qwen/Qwen2.5-7B-Instruct",
+    "scheme": "fp16",
+    "dtype": "bfloat16",
+    "bit_width": null,
+    "quantization": null
+  },
+  "task_cfg": {
+    "lm_eval_task": "gsm8k",
+    "num_fewshot": 5,
+    "batch_size": 1,
+    "limit": null,
+    "capability_axis": "reasoning",
+    "metric": "exact_match"
+  },
+  "generation_cfg": {
+    "do_sample": false,
+    "temperature": 1.0,
+    "top_p": 1.0,
+    "top_k": 50,
+    "max_new_tokens": 512
+  },
+  "seed": 1234,
+  "limit": null,
+  "timestamp": 1789702640.7274704,
+  "results": {
+    "alias": "gsm8k",
+    "exact_match,strict-match": 0.8506,
+    "exact_match_stderr,strict-match": 0.0098,
+    "exact_match,flexible-extract": 0.8597,
+    "exact_match_stderr,flexible-extract": 0.0096
+  }
+}

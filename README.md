@@ -66,6 +66,27 @@ a nondeterministic-operation error for a specific quantization backend,
 that's a real result to record (that backend can't guarantee reproducible
 output) -- don't work around it by relaxing determinism back to warn-only.
 
+## Analysis layer
+
+Once raw results exist (real, in `results/raw/`, or synthetic, in
+`fixtures/synthetic_raw/` -- see `fixtures/README.md` for generating fake
+data to test against when the GPU box is unavailable):
+
+```bash
+# Reduce results/raw/*.json into one tidy CSV.
+python src/aggregate.py
+
+# Compute per-capability-axis degradation vs. the fp16 baseline and plot it.
+python src/analyze.py
+```
+
+Both scripts point at `results/raw/` / `results/processed/` / `figures/`
+by default; pass `--raw-dir fixtures/synthetic_raw` (and matching
+`--output`/`--input`/`--figure` paths) to run against synthetic data
+instead without touching real results. gsm8k reports both strict-match and
+flexible-extract; `src/aggregate.py --metric-filter` picks which one feeds
+the whole pipeline (default: `strict-match`) -- never mixed across a run.
+
 ## Repo layout
 
 - `configs/` -- which models, quant schemes, tasks, and generation/seed
@@ -73,10 +94,14 @@ output) -- don't work around it by relaxing determinism back to warn-only.
   `src/` for that.
 - `src/` -- `load_model.py` (model+tokenizer loading per config),
   `run_eval.py` (thin lm-eval-harness wrapper), `check_determinism.py`,
-  `run_milestone.py` (the current milestone loop).
+  `run_milestone.py` (the current milestone loop), `aggregate.py` (raw
+  JSON -> tidy CSV), `analyze.py` (degradation table + figure).
 - `results/raw/` -- raw per-(model, task) JSON, tracked in git.
-- `results/processed/` -- derived tables, not yet implemented.
-- `figures/` -- exported plots, not yet implemented.
+- `results/processed/` -- derived tables (`aggregate.py`/`analyze.py`
+  output). Never hand-edited.
+- `figures/` -- exported plots from `analyze.py`.
+- `fixtures/` -- synthetic, fake results/raw/-shaped data for testing the
+  analysis layer without the GPU box. See `fixtures/README.md`.
 - `notebooks/` -- exploratory analysis, not yet implemented.
 - `requirements.txt` -- pinned core + AWQ/bnb deps.
 - `requirements-gptq.txt` -- `auto-gptq`, install separately, later.
